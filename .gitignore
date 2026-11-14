@@ -4,3 +4,8 @@ node_modules/
 Thumbs.db
 dist/
 build/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
