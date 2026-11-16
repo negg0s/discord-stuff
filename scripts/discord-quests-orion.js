@@ -561,7 +561,7 @@
             });
 
             body.innerHTML = sorted.map(([id, t]) => {
-                const pct = t.pending || t.failed ? 0 : Math.min(100, (t.cur / t.max) * 100).toFixed(1);
+                const pct = this._getPct(t).toFixed(1);
                 const icon =
                     t.done ? ICONS.CHECK :
                     t.failed ? ICONS.STOP :
@@ -1024,14 +1024,14 @@
             return entry?.value ?? userStatus?.streamProgressSeconds ?? 0;
         },
 
-        sanitize(name) { return name.replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, " "); },
+        sanitize(name) { return String(name ?? "").replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, " "); },
 
         appIdFor(cfg, keyName, legacyAppId) {
             return cfg?.tasks?.[keyName]?.applications?.[0]?.id ?? legacyAppId ?? null;
         },
 
         detectType(cfg, applicationId) {
-            const taskKeys = Object.keys(cfg.tasks);
+            const taskKeys = Object.keys(cfg?.tasks ?? {});
             const typeMap = [
                 { match: k => k === "ACHIEVEMENT_IN_ACTIVITY", type: "ACHIEVEMENT" },
                 { match: k => k === "PLAY_ACTIVITY", type: "ACTIVITY" },
@@ -1046,7 +1046,7 @@
                 if (keyName) {
                     return {
                         type, keyName,
-                        target: cfg.tasks[keyName]?.target ?? 0,
+                        target: cfg?.tasks?.[keyName]?.target ?? 0,
                         appId: this.appIdFor(cfg, keyName, applicationId)
                     };
                 }
@@ -1055,7 +1055,7 @@
             if (applicationId) {
                 return {
                     type: "GAME", keyName: "PLAY_ON_DESKTOP",
-                    target: cfg.tasks[taskKeys[0]]?.target ?? 0,
+                    target: (taskKeys.length ? cfg?.tasks?.[taskKeys[0]]?.target : 0) ?? 0,
                     appId: applicationId
                 };
             }
@@ -1065,7 +1065,7 @@
 
         async fetchGameData(appId, appName) {
             try {
-                const res = await Mods.API.get({ url: `/applications/public?application_ids=${appId}` });
+                const res = await Mods.API.get({ url: `/applications/public?application_ids=${encodeURIComponent(String(appId ?? ""))}` });
                 const appData = res?.body?.[0];
                 const exeEntry = appData?.executables?.find(x => x.os === "win32");
                 const rawExe = exeEntry ? exeEntry.name.replace(">", "") : `${this.sanitize(appName)}.exe`;
@@ -1262,6 +1262,7 @@
                 const beat = { stream_key: key, application_id: String(t.appId || ''), terminal: false };
                 let cur = 0;
                 let failCount = 0;
+                const startTime = Date.now();
 
                 while (cur < t.target && RUNTIME.running) {
                     try {
@@ -1282,6 +1283,11 @@
                         const err = ErrorHandler.classify(e);
                         if (err.isClientError || failCount >= SYS.MAX_TASK_FAILURES) break;
                     }
+
+                    if (Date.now() - startTime > SYS.MAX_TIME) {
+                        return Tasks.failTask(q, t, 'Timeout exceeded');
+                    }
+
                     await sleep(rnd(19000, 22000));
                 }
 
@@ -1354,7 +1360,7 @@
                     if (claimRes?.body?.claimed_at) {
                         Logger.log(`[Claim] Reward for "${t.name}" claimed automatically!`, 'success');
                         Logger.updateTask(q.id, { name: t.name, type: t.type, cur: t.target, max: t.target, status: "CLAIMED" });
-                        setTimeout(() => this.removeTask(q.id), 2000);
+                        setTimeout(() => Logger.removeTask(q.id), 2000);
                         return;
                     }
                 } catch (e) {
@@ -1599,7 +1605,9 @@
         const executing = new Set();
         for (const task of tasks) {
             if (!RUNTIME.running) break;
-            const p = task().finally(() => executing.delete(p));
+            const p = Promise.resolve().then(() => task()).catch(err => {
+                try { Logger.log(`[Task] Worker error: ${err?.message ?? err}`, 'warn'); } catch (_) { }
+            }).finally(() => executing.delete(p));
             executing.add(p);
             await sleep(rnd(400, 800));
             if (executing.size >= limit) {

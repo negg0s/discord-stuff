@@ -1397,13 +1397,13 @@
             const r = this.refs;
             if (!r.name) return;
             r.name.textContent = g.name;
-            r.sub.textContent = `app ${g.id}${g.steamId ? ` ┬╖ steam ${g.steamId}` : ""} ┬╖ ${seconds}s`;
+            r.sub.textContent = `app ${g.id}${g.steamId ? ` \u00b7 steam ${g.steamId}` : ""} \u00b7 ${seconds}s`;
             r.art.innerHTML = g.icon
                 ? `<img src="${esc(`https://cdn.discordapp.com/app-icons/${g.id}/${g.icon}.png?size=64`)}" alt="">`
                 : ICONS.GAME;
             r.count.textContent = `${idx} / ${total}`;
             r.bar.style.width = "0%";
-            if (r.mini) r.mini.textContent = `${g.name} ┬╖ ${clock(seconds)}`;
+            if (r.mini) r.mini.textContent = `${g.name} \u00b7 ${clock(seconds)}`;
         },
 
         tick(ratio, remainSec, elapsedMin, paused, sessionLeft) {
@@ -1417,7 +1417,7 @@
             if (r.left) r.left.textContent = sessionLeft === null ? "-" : clock(sessionLeft);
             if (r.mini) {
                 const name = this.currentName || "";
-                r.mini.textContent = `${name} ┬╖ ${text}`;
+                r.mini.textContent = `${name} \u00b7 ${text}`;
             }
         },
 
@@ -1544,7 +1544,7 @@
         UI.resetControls();
         UI.currentName = g.name;
 
-        let totalMs = seconds * 1000;
+        let totalMs = Math.max(1000, seconds * 1000);
         let elapsed = 0;
         let last = Date.now();
         let lastBeat = 0;
@@ -1694,7 +1694,7 @@
                         timeUp = true;
                         break;
                     }
-                    UI.tick(0, RT.gap - (Date.now() - gapStart) / 1000, Math.floor((Date.now() - RT.sessionStart) / 60000), false, sessionLeft());
+                    UI.tick(0, Math.max(0, RT.gap - (Date.now() - gapStart) / 1000), Math.floor((Date.now() - RT.sessionStart) / 60000), false, sessionLeft());
                     await sleep(SYS.TICK);
                 }
             }
