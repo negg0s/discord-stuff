@@ -1,23 +1,27 @@
-name: Lint
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
   syntax:
+    name: Lint JavaScript
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Verify repository constraints
         run: python3 tools/check_constraints.py
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
+
       - name: Check JavaScript syntax
         run: |
           for file in scripts/*.js; do

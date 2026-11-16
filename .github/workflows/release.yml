@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Lint scripts
+        run: |
+          for file in scripts/*.js; do
+            node --check "$file"
+          done
+
+      - name: Bundle userscripts
+        run: |
+          mkdir -p dist
+          cp scripts/*.js dist/
+          cd dist
+          zip -r discord-stuff-scripts.zip *.js
+          sha256sum * > SHA256SUMS
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+          generate_release_notes: true
